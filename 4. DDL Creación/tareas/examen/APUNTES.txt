@@ -51,18 +51,33 @@ que cumplen una condición definida
 -- CONSTRAINT CK_CODIGORIO CHECK (Codigo LIKE '[0-9][0-9][0-9]-[a-zA-Z][AP]')
 -- CONSTRAINT CK_LugarFinTramo CHECK (LugarFin != LugarInicio)
 
-4. DEFAULT: define un valor por defecto que se le asigna a una columna cuando
+
+4. UNIQUE: asegura que los valores de una columna sean únicos dentro de la tabla
+(sin duplicados)
+
+-- CONSTRAINT UQ_Nombre UNIQUE (Nombre)
+
+
+5. DEFAULT: define un valor por defecto que se le asigna a una columna cuando
 no se especifica ningún valor. El DEFAULT tiene que ir junto a la definición
 de la columna siempre
 
 -- Vertiente VARCHAR(15) NULL
 --      CONSTRAINT DF_VertienteRio DEFAULT 'Mediterraneo'
 
+Las CONSTRAINT podemos eliminarlas con ALTER TABLE ... DROP CONSTRAINT ...
 
-5. UNIQUE: asegura que los valores de una columna sean únicos dentro de la tabla
-(sin duplicados)
 
--- CONSTRAINT UQ_Nombre UNIQUE (Nombre)
+
+En SQL Server también existen las propiedades:
+
+1. IDENTITY: genera valores automáticos e incrementarles para una columna 
+numérica
+
+-- CodEspecie INT IDENTITY (1, 5)
+En este ejemplo, se inicia en uno e incrementa de 5 en 5
+
+2. NULL / NOT NULL: definen si se permiten o no valores nulos
 
 
 
@@ -77,5 +92,33 @@ TIPOS DE DATOS
 6. DATETIME: almacena fecha y hora (YYYY-MM-DD HH:MM:SS)
 7. FLOAT: números con decimales y precisión flotante
 8. DECIMAL(p, s): números (n) con decimales (s) y precisión fija
-9. BIT: booleano, verdadero o falso
+9. BIT: booleano, verdadero (1) o falso (0)
 10. BINARY: datos binarios de longitud fija: imágenes, archivos...
+
+
+
+CREACION DE TABLAS INTERMEDIAS
+==============================
+
+Pepa manda crear las tablas en un orden.
+Imaginamos las tablas TRAMO, ESPECIETRAMO y ESPECIE
+
+En ese orden, crearíamos TRAMO sin problema, pero en ESPECIETRAMO, los atributos
+forman parte de TRAMO y ESPECIE, por lo que no podemos crear esa tabla entera si
+ESPECIE no está declarada. Construiríamos ESPECIETRAMO con los atributos de TRAMO
+y después, al construir ESPECIE, añadiríamos los atributos faltantes.
+
+-- 1. Agregar codEspecie y establecer la clave foránea
+ALTER TABLE ESPECIETRAMO 
+	ADD codEspecie INT NOT NULL,
+	CONSTRAINT FK_ESPECIE_ESPECIETRAMO FOREIGN KEY (CodEspecie) REFERENCES ESPECIE(CodEspecie)
+		ON UPDATE CASCADE
+		ON DELETE CASCADE
+		
+-- 2. Eliminar la clave primaria existente
+ALTER TABLE ESPECIETRAMO 
+	DROP CONSTRAINT PK_ESPECIETRAMO
+	
+-- 3. Crear la nueva clave primaria compuesta
+ALTER TABLE ESPECIETRAMO 
+	ADD CONSTRAINT PK_ESPECIETRAMO PRIMARY KEY (CodRio, Numero, CodEspecie)
