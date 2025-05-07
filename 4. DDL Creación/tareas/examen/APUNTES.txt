@@ -122,3 +122,19 @@ ALTER TABLE ESPECIETRAMO
 -- 3. Crear la nueva clave primaria compuesta
 ALTER TABLE ESPECIETRAMO 
 	ADD CONSTRAINT PK_ESPECIETRAMO PRIMARY KEY (CodRio, Numero, CodEspecie)
+
+
+
+MODIFICACIONES EN TABLAS
+========================
+
+1. Borrar un campo de una tabla
+Tenemos que borrar las restricciones para no violar las que tienen claves primarias,
+claves foráneas o DEFAULT, CHECK y UNIQUE
+
+2. NO UPDATE NO ACTION
+   NO DELETE NO ACTION
+Se usan para no permitir el borrado ni la actualización de tablas
+
+3. Imprimir por pantalla 
+PRINT 'Hola Mundo ' 

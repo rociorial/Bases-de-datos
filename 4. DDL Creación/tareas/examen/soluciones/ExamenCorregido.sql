@@ -191,3 +191,76 @@ ALTER TABLE ESPECIETRAMO
 -- Comprobamos la modificación de la tabla
 exec sp_help ESPECIETRAMO
 exec sp_helpconstraint ESPECIETRAMO
+
+
+-- Ejercicio 3.
+-- a)
+-- Eliminar primero las restricciones
+ALTER TABLE TRAMO 
+	DROP 
+	CONSTRAINT DF_CURSO_TRAMORIO, 
+	CONSTRAINT CK_CURSO_TRAMORIO
+-- Eliminar la tabla
+ALTER TABLE TRAMO
+	DROP COLUMN CURSO	
+-- Comprobar la modificación
+exec sp_help TRAMO
+exec sp_helpconstraint TRAMO
+
+-- b)
+-- Añadir afluentes a RIO
+ALTER TABLE RIO 
+	ADD 
+	codAfluente SMALLINT NOT NULL,
+	CONSTRAINT FK_AFLUENTES_RIOS FOREIGN KEY (codAfluente) REFERENCES rio(Codigo)
+-- No permitir la actualización ni el borrado 	
+		ON UPDATE NO ACTION
+		ON DELETE NO ACTION
+-- Indicación de no poder borrarlo
+			BEGIN
+				PRINT 'El rio no puede borrarse ya que tiene afluentes' 
+			END
+-- Comprobar la modificación
+exec sp_help RIO
+exec sp_helpconstraint RIO
+
+-- c) 
+ALTER TABLE RIO 
+ADD 
+	CONSTRAINT DF_ACTIVIDAD_RIO DEFAULT 'Estacional' FOR ACTIVIDAD,
+    CONSTRAINT CK_ACTIVIDAD_RIO CHECK (ACTIVIDAD IN ('Perenne', 'Estacional', 'Transitorio'))
+-- Mostrar la modificación
+exec sp_help RIO
+exec sp_helpconstraint RIO
+
+
+
+-- Ejercicio 4.
+-- Comprobar la existencia de PLAYAFLUVIAL
+IF EXISTS (SELECT * FROM SYS.tables WHERE name='PLAYAFLUVIAL')
+	DROP table PLAYAFLUVIAL
+
+-- Creación de la tabla
+CREATE TABLE PLAYAFLUVIAL (
+	codPlaya SMALLINT IDENTITY (1, 5) NOT NULL,
+	CodRio SMALLINT NOT NULL,
+	Numero INT NOT NULL,
+	nombrePlaya VARCHAR (20) NOT NULL,
+	caracteristicas VARCHAR (120) NULL,
+	phAgua FLOAT
+		CONSTRAINT DF_PHAGUA_PLAYAFLUVIAL DEFAULT 7.5,
+	SERVICIOS VARCHAR (100),
+	
+	fechaUltimaInspeccion datetime
+		CONSTRAINT DF_PLAYAFLUVIAL_FECHAULTIMAINSPECCION DEFAULT (DATEDIFF (MONTH, GETDATE(),-2)),
+	CONSTRAINT PK_PLAYAFLUVIAL PRIMARY KEY (codPlaya,CodRio,Numero),
+	CONSTRAINT FK_PLAYAFLUVIAL_TRAMO FOREIGN KEY (CodRio, Numero) REFERENCES TRAMO(CodRio,Numero)
+		ON DELETE CASCADE
+		ON UPDATE CASCADE,
+		
+	CONSTRAINT CK_PHAGUA_PLAYAFLUVIAL CHECK (phagua >= 4 and phagua <= 9)
+)
+
+-- Mostrar la modificación
+exec sp_help PLAYAFLUVIAL
+exec sp_helpconstraint PLAYAFLUVIAL
