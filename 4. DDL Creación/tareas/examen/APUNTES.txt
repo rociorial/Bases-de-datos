@@ -1,0 +1,81 @@
+COMPROBAR EXISTENCIA Y BORRADO
+==============================
+- Base de datos:
+IF EXISTS (SELECT * FROM SYS.databases WHERE name='RIOS')
+BEGIN
+	DROP DATABASE RIOS
+END
+
+- Tabla: 
+IF EXISTS (SELECT * FROM SYS.tables WHERE name='RIO')
+BEGIN
+	DROP TABLE RIO
+END
+
+
+
+MOSTRAR INFO DE LA BASE DE DATOS
+================================
+
+exec sp_helpdb RIOS
+exec sp_help RIO
+exec sp_helpconstraint RIO
+
+
+CONSTRAINT: regla o restricción
+===============================
+
+1. PRIMARY KEY: asegura que cada fila tenga valor único y no nulo en la columna
+que define a la clave primaria
+
+-- CONSTRAINT PK_RIO PRIMARY KEY (Codigo)
+
+
+2. FOREIGN KEY: asegura que los valores en una columna coincidan con los de una
+clave primaria o única en otra tabla
+
+-- CONSTRAINT FK_Rio_Pais FOREIGN KEY (PaisID) REFERENCES Pais(ID)
+
+Como los valores tienen que coincidir, si se elimina uno, el otro también, y lo
+mismo con las actualizaciones:
+
+ON DELETE CASCADE
+ON UPDATE CASCADE
+
+
+3. CHECK: limimta valores que una columna puede almacenar, permitiendo sólo los
+que cumplen una condición definida
+
+-- CONSTRAINT CHK_Edad CHECK (Edad >= 0 AND Edad <= 120)
+-- CONSTRAINT CK_VERTIENTE_RIO CHECK (Vertiente IN ('Mediterranea', 'Atlantica'))
+-- CONSTRAINT CK_CODIGORIO CHECK (Codigo LIKE '[0-9][0-9][0-9]-[a-zA-Z][AP]')
+-- CONSTRAINT CK_LugarFinTramo CHECK (LugarFin != LugarInicio)
+
+4. DEFAULT: define un valor por defecto que se le asigna a una columna cuando
+no se especifica ningún valor. El DEFAULT tiene que ir junto a la definición
+de la columna siempre
+
+-- Vertiente VARCHAR(15) NULL
+--      CONSTRAINT DF_VertienteRio DEFAULT 'Mediterraneo'
+
+
+5. UNIQUE: asegura que los valores de una columna sean únicos dentro de la tabla
+(sin duplicados)
+
+-- CONSTRAINT UQ_Nombre UNIQUE (Nombre)
+
+
+
+TIPOS DE DATOS
+==============
+
+1. INT: entero
+2. VARCHAR(n): almacena texto de longitud variable (n)
+3. CHAR(n): cadena de caracteres con longitud fija (n)
+4. TEXT: almacenar texto muy largo, como descripciones
+5. DATE: almacena solo la fecha (YYYY-MM-DD)
+6. DATETIME: almacena fecha y hora (YYYY-MM-DD HH:MM:SS)
+7. FLOAT: números con decimales y precisión flotante
+8. DECIMAL(p, s): números (n) con decimales (s) y precisión fija
+9. BIT: booleano, verdadero o falso
+10. BINARY: datos binarios de longitud fija: imágenes, archivos...

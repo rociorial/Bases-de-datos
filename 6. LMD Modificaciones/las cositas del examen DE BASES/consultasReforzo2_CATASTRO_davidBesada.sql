@@ -1,0 +1,237 @@
+-- 1. Haz una consulta que muestre las zonas urbanas (nombre y descripción) donde hay algún bloque de pisos sin ascensor.
+SELECT DISTINCT Z.NOMBREZONA, DESCRIPCIÓN
+FROM ZONAURBANA Z
+INNER JOIN VIVIENDA V ON V.NOMBREZONA = Z.NOMBREZONA
+INNER JOIN BLOQUEPISOS B ON V.CALLE = B.CALLE AND V.NUMERO = B.NUMERO
+WHERE B.ASCENSOR = 'N';
+
+-- Alternativa con subconsulta:
+SELECT Z.NOMBREZONA, DESCRIPCIÓN
+FROM ZONAURBANA Z
+WHERE EXISTS (
+    SELECT 1
+    FROM VIVIENDA V
+    INNER JOIN BLOQUEPISOS B ON V.CALLE = B.CALLE AND V.NUMERO = B.NUMERO
+    WHERE V.NOMBREZONA = Z.NOMBREZONA AND B.ASCENSOR = 'N'
+);
+
+-- 2. Lo mismo que la anterior pero indicando bloques hay en cada zona, poniendo 0 en el caso de que no haya ningún bloque sin ascensor en esa zona.
+
+SELECT Z.NOMBREZONA, DESCRIPCIÓN,  
+       COALESCE((
+           SELECT COUNT(*)
+           FROM VIVIENDA V
+           LEFT JOIN BLOQUEPISOS B ON V.CALLE = B.CALLE AND V.NUMERO = B.NUMERO
+           WHERE V.NOMBREZONA = Z.NOMBREZONA AND B.ASCENSOR = 'N'
+       ), 0) AS NUM_BLOQUES
+FROM ZONAURBANA Z;
+
+-- OTRA MANERA CON SUBCONSULTAS
+
+SELECT Z.NOMBREZONA, DESCRIPCIÓN, ISNULL(NUMERO, 0) AS NUMERO
+FROM ZONAURBANA Z
+	LEFT JOIN (SELECT NOMBREZONA, COUNT(*) AS NUMERO 
+			   FROM BLOQUEPISOS B1
+			   INNER JOIN VIVIENDA V1 ON B1.CALLE = V1.CALLE AND B1.NUMERO = V1.NUMERO
+			   WHERE ASCENSOR = 'N'
+			   GROUP BY NOMBREZONA) AS T
+    ON Z.NOMBREZONA = T.NOMBREZONA
+    
+GO
+-- O PUEDES HACER ASI
+
+WITH VIVIENDASINASCENSOR AS (
+	 SELECT NOMBREZONA, COUNT(*) AS NUMERO 
+	 FROM BLOQUEPISOS B1
+	 INNER JOIN VIVIENDA V1 ON B1.CALLE = V1.CALLE AND B1.NUMERO = V1.NUMERO
+	 WHERE ASCENSOR = 'N'
+	 GROUP BY NOMBREZONA
+)
+
+SELECT Z.NOMBREZONA, DESCRIPCIÓN, ISNULL(NUMERO, 0) AS NUMERO
+FROM ZONAURBANA Z
+	LEFT JOIN VIVIENDASINASCENSOR VA
+    ON Z.NOMBREZONA = VA.NOMBREZONA
+
+-- 3. Haz una consulta que muestre las zonas urbanas en las que hay más de 2 pisos.
+
+SELECT NOMBREZONA, COUNT(*) AS NUM_PISCINAS
+FROM VIVIENDA V
+INNER JOIN CASAPARTICULAR CP ON CP.CALLE = V.CALLE AND CP.NUMERO = V.NUMERO
+WHERE PISCINA='S'
+GROUP BY NOMBREZONA
+HAVING COUNT(*) > 2;
+
+-- 4. Haz una consulta que devuelva DNI, y nombre completo de las hombres que no poseen ningún piso y tienen algún garaje en la zona Centro o algún trastero en la zona Palomar.
+SELECT PR.DNI, 
+       PR.NOMBRE + ' ' + PR.APELLIDO1 + ' ' + ISNULL(PR.APELLIDO2, '') AS NOMBRECOMPLETO
+FROM PROPIETARIO PR
+LEFT JOIN PISO PS ON PS.DNIPROPIETARIO = PR.DNI
+INNER JOIN HUECO H ON H.DNIPROPIETARIO = PR.DNI 
+INNER JOIN VIVIENDA V ON V.CALLE = H.CALLE AND V.NUMERO = H.NUMERO
+WHERE PS.DNIPROPIETARIO IS NULL
+  AND (H.TIPO = 'Garaje' AND V.NOMBREZONA = 'Centro' 
+       OR H.TIPO = 'Trastero' AND V.NOMBREZONA = 'Palomar');
+
+-- Alternativa con subconsulta:
+SELECT PR.DNI, 
+       PR.NOMBRE + ' ' + PR.APELLIDO1 + ' ' + ISNULL(PR.APELLIDO2, '') AS NOMBRECOMPLETO
+FROM PROPIETARIO PR
+WHERE PR.DNI NOT IN (
+    SELECT PS.DNIPROPIETARIO
+    FROM PISO PS
+    WHERE PS.DNIPROPIETARIO = PR.DNI
+)
+AND EXISTS (
+    SELECT 1
+    FROM HUECO H
+    INNER JOIN VIVIENDA V ON V.CALLE = H.CALLE AND V.NUMERO = H.NUMERO
+    WHERE H.DNIPROPIETARIO = PR.DNI 
+    AND (
+        (H.TIPO = 'Garaje' AND V.NOMBREZONA = 'Centro')
+        OR (H.TIPO = 'Trastero' AND V.NOMBREZONA = 'Palomar')
+    )
+);
+
+-- 5. ¿Cuántas mujeres tienen una casa con piscina y sin ascensor? (LAS CASAS NO TIENEN ASCENSOR)
+
+SELECT COUNT(*) AS NUM_MUJERES
+FROM PROPIETARIO PR
+	INNER JOIN CASAPARTICULAR CP ON PR.DNI = CP.DNIPROPIETARIO
+	INNER JOIN PISO P ON PR.DNI = P.DNIPROPIETARIO
+	INNER JOIN BLOQUEPISOS BP ON BP.CALLE = P.CALLE AND BP.NUMERO = P.NUMERO
+	INNER JOIN VIVIENDA V ON V.CALLE IN (CP.CALLE, P.CALLE) AND V.NUMERO IN(CP.NUMERO, P.NUMERO)
+WHERE PR.SEXO = 'M' AND CP.PISCINA = 'S' AND BP.ASCENSOR = 'S'
+
+-- Alternativa con subconsulta:
+SELECT COUNT(*) AS NUM_MUJERES
+FROM PROPIETARIO PR
+WHERE PR.SEXO = 'M' 
+AND EXISTS (
+    SELECT 1
+    FROM CASAPARTICULAR CP
+    WHERE CP.DNIPROPIETARIO = PR.DNI 
+    AND CP.PISCINA = 'S'
+) AND EXISTS (
+	SELECT 1
+	FROM BLOQUEPISOS BP
+	INNER JOIN PISO P ON BP.CALLE = P.CALLE AND BP.NUMERO = P.NUMERO
+	WHERE P.DNIPROPIETARIO = PR.DNI
+	AND BP.ASCENSOR = 'S'
+)
+
+-- 6. Para los diferentes propietarios varones, visualiza el DNI, nombre completo y un mensaje que indique si posee alguna vivienda particular o en caso contrario indicando que no posee ninguna.
+SELECT P.DNI, 
+       P.NOMBRE + ' ' + P.APELLIDO1 + ' ' + ISNULL(P.APELLIDO2, '') AS NOMBRECOMPLETO,
+       CASE 
+           WHEN EXISTS (SELECT 1 FROM CASAPARTICULAR CP WHERE CP.DNIPROPIETARIO = P.DNI) 
+           THEN 'POSEE AL MENOS UNA CASA PARTICULAR' 
+           ELSE 'NO TIENE NINGUNA CASA PARTICULAR' 
+       END AS MENSAJE
+FROM PROPIETARIO P
+WHERE P.SEXO = 'H';
+
+-- Alternativa con subconsulta:
+SELECT P.DNI, 
+       P.NOMBRE + ' ' + P.APELLIDO1 + ' ' + ISNULL(P.APELLIDO2, '') AS NOMBRECOMPLETO,
+       CASE 
+           WHEN EXISTS (
+               SELECT 1 FROM CASAPARTICULAR CP WHERE CP.DNIPROPIETARIO = P.DNI
+           ) THEN 'POSEE AL MENOS UNA CASA PARTICULAR' 
+           ELSE 'NO TIENE NINGUNA CASA PARTICULAR' 
+       END AS MENSAJE
+FROM PROPIETARIO P
+WHERE P.SEXO = 'H';
+
+-- 7. Para los diferentes propietarios varones, visualiza el DNI, nombre completo y un mensaje que indique si posee alguna vivienda particular o en caso contrario indicando que no posee ninguna. También indica si posee algún piso o casa particular.
+SELECT P.DNI, 
+       P.NOMBRE + ' ' + P.APELLIDO1 + ' ' + ISNULL(P.APELLIDO2, '') AS NOMBRECOMPLETO,
+       CASE 
+           WHEN EXISTS (SELECT 1 FROM CASAPARTICULAR CP WHERE CP.DNIPROPIETARIO = P.DNI) 
+           THEN 'POSEE AL MENOS UNA CASA PARTICULAR' 
+           ELSE 'NO TIENE NINGUNA CASA PARTICULAR' 
+       END AS MENSAJE,
+       CASE 
+           WHEN EXISTS (SELECT 1 FROM PISO PS WHERE PS.DNIPROPIETARIO = P.DNI)
+           THEN 'POSEE AL MENOS UN PISO'
+           ELSE 'NO TIENE NINGUN PISO'
+       END AS MENSAJE_PISO
+FROM PROPIETARIO P
+WHERE P.SEXO = 'H';
+
+-- 8. Haz una consulta que muestre cuantos propietarios varones hay en cada zona urbana. En el caso de que no haya ninguno debe visualizarse el nombre de la zona y 0 en la columna correspondiente al número de propietarios.
+
+SELECT NOMBREZONA, 
+    COALESCE(COUNT(DISTINCT PR.DNI), 0) AS NUM_PROPIETARIOS
+FROM PROPIETARIO PR
+	LEFT JOIN HUECO H ON PR.DNI = H.DNIPROPIETARIO
+	LEFT JOIN CASAPARTICULAR CP ON PR.DNI = CP.DNIPROPIETARIO
+	LEFT JOIN PISO P ON PR.DNI = P.DNIPROPIETARIO
+	INNER JOIN VIVIENDA V ON (V.CALLE = H.CALLE AND V.NUMERO = H.NUMERO) 
+						  OR (V.CALLE = CP.CALLE AND V.NUMERO = CP.NUMERO) 
+						  OR (V.CALLE = P.CALLE AND V.NUMERO = P.NUMERO)
+						  WHERE SEXO = 'H'
+GROUP BY NOMBREZONA;
+
+-- 9. Haz una consulta que devuelva los metros del solar, el total de metros construidos en cada bloque ordenados por metros construidos de mayor a menor y dentro de este por metros útiles de mayor a menor.
+SELECT B.CALLE, B.NUMERO, 
+       SUM(H.METROS) AS METROS_SOLAR, 
+       SUM(P.METROSCONSTRUIDOS) AS METROS_CONSTRUIDOS, 
+       SUM(P.METROSUTILES) AS METROS_UTIL
+FROM BLOQUEPISOS B
+INNER JOIN HUECO H ON H.CALLE = B.CALLE AND H.NUMERO = B.NUMERO
+INNER JOIN PISO P ON P.CALLE = B.CALLE AND P.NUMERO = B.NUMERO
+GROUP BY B.CALLE, B.NUMERO
+ORDER BY METROS_CONSTRUIDOS DESC, METROS_UTIL DESC;
+
+
+-- 10. Modifica la consulta anterior para que además de esa información indique cuántas viviendas (pisos) hay en cada bloque (usando la tabla piso) y cuántos propietarios distintos hay en cada bloque. 
+-- En este caso ordénalos de menor a mayor por el número de viviendas y dentro de este por el número de propietarios distintos.
+SELECT B.CALLE, B.NUMERO, 
+       SUM(H.METROS) AS METROS_SOLAR, 
+       SUM(P.METROSCONSTRUIDOS) AS METROS_CONSTRUIDOS, 
+       SUM(P.METROSUTILES) AS METROS_UTIL,
+       COUNT(DISTINCT P.DNIPROPIETARIO) AS NUM_PROPIETARIOS,
+       COUNT(P.CALLE) AS NUM_VIVIENDAS
+FROM BLOQUEPISOS B
+INNER JOIN HUECO H ON H.CALLE = B.CALLE AND H.NUMERO = B.NUMERO
+INNER JOIN PISO P ON P.CALLE = B.CALLE AND P.NUMERO = B.NUMERO
+GROUP BY B.CALLE, B.NUMERO
+ORDER BY NUM_VIVIENDAS ASC, NUM_PROPIETARIOS ASC;
+
+-- 11. Haz una consulta que devuelva el/los propietarios (nombre completo) que más metros cuadrados poseen en Trasteros y Bodegas.
+SELECT TOP 1 WITH TIES PR.NOMBRE + ' ' + PR.APELLIDO1 + ' ' + ISNULL(PR.APELLIDO2, '') AS NOMBRECOMPLETO,
+       SUM(H.METROS) AS TOTAL_METROS
+FROM PROPIETARIO PR
+INNER JOIN HUECO H ON H.DNIPROPIETARIO = PR.DNI
+INNER JOIN VIVIENDA V ON V.CALLE = H.CALLE AND V.NUMERO = H.NUMERO
+WHERE H.TIPO IN ('Trastero', 'Bodega')
+GROUP BY PR.NOMBRE, PR.APELLIDO1, PR.APELLIDO2
+ORDER BY TOTAL_METROS DESC
+
+-- 12. ¿Cuántos metros construidos posee cada propietario? Haz una consulta que muestre el total de metros construidos que posee cada uno. 
+-- En el caso de no tener ningún piso o vivienda unifamiliar, debes poner 0 en la columna correspondiente.
+SELECT PR.DNI, 
+       PR.NOMBRE + ' ' + PR.APELLIDO1 + ' ' + ISNULL(PR.APELLIDO2, '') AS NOMBRECOMPLETO,
+       COALESCE(SUM(P.METROSCONSTRUIDOS), 0) AS METROS_CONSTRUIDOS
+FROM PROPIETARIO PR
+LEFT JOIN PISO P ON P.DNIPROPIETARIO = PR.DNI
+GROUP BY PR.DNI, PR.NOMBRE, PR.APELLIDO1, PR.APELLIDO2;
+
+-- 13. Haz un listado de las propietarias (DNI, nombre completo y teléfono) que tienen un garaje pero no tienen ningún piso con ascensor.
+SELECT PR.DNI, 
+       PR.NOMBRE + ' ' + PR.APELLIDO1 + ' ' + ISNULL(PR.APELLIDO2, '') AS NOMBRECOMPLETO,
+       PR.TELEFONO
+FROM PROPIETARIO PR
+INNER JOIN HUECO H ON H.DNIPROPIETARIO = PR.DNI
+INNER JOIN VIVIENDA V ON V.CALLE = H.CALLE AND V.NUMERO = H.NUMERO
+INNER JOIN BLOQUEPISOS B ON B.CALLE = V.CALLE AND B.NUMERO = V.NUMERO
+WHERE H.TIPO = 'Garaje' 
+  AND NOT EXISTS (
+      SELECT 1
+      FROM PISO P
+      INNER JOIN BLOQUEPISOS B2 ON B2.CALLE = P.CALLE AND B2.NUMERO = P.NUMERO
+      WHERE P.DNIPROPIETARIO = PR.DNI 
+      AND B2.ASCENSOR = 'S'
+  )
+GROUP BY PR.DNI, PR.NOMBRE, PR.APELLIDO1, PR.APELLIDO2, PR.TELEFONO;
