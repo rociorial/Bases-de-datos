@@ -48,7 +48,7 @@ que cumplen una condición definida
 
 -- CONSTRAINT CHK_Edad CHECK (Edad >= 0 AND Edad <= 120)
 -- CONSTRAINT CK_VERTIENTE_RIO CHECK (Vertiente IN ('Mediterranea', 'Atlantica'))
--- CONSTRAINT CK_CODIGORIO CHECK (Codigo LIKE '[0-9][0-9][0-9]-[a-zA-Z][AP]')
+-- CONSTRAINT CK_CODIGORIO CHECK (Codigo LIKE '[0-9][0-9][0-9]-[a-zA-Z][AP][^a-d]')
 -- CONSTRAINT CK_LugarFinTramo CHECK (LugarFin != LugarInicio)
 
 
@@ -95,6 +95,14 @@ TIPOS DE DATOS
 9. BIT: booleano, verdadero (1) o falso (0)
 10. BINARY: datos binarios de longitud fija: imágenes, archivos...
 
+CREAR UN TIPO:
+-- Comprobar si existe y sino dropear
+IF EXISTS (SELECT * FROM sys.types WHERE name = 'TipoDNI')
+	DROP TYPE TipoDNI
+CREATE TYPE TipoDNI FROM CHAR(9) NOT NULL
+
+-- Creando los atributos
+DNI tipoDNI NOT NULL
 
 
 CREACION DE TABLAS INTERMEDIAS
